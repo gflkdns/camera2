@@ -180,6 +180,7 @@ public class Camera2Fragment extends Fragment {
                 CaptureRequest.Builder builder = mCameraSession.getDevice().createCaptureRequest
                         (CameraDevice.TEMPLATE_PREVIEW);
                 builder.addTarget(mImageReader.getSurface());
+                builder.set(CaptureRequest.SCALER_CROP_REGION, picRect);
                 builder.set(CaptureRequest.CONTROL_AF_MODE,
                         CaptureRequest.CONTROL_AF_MODE_AUTO);
                 builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
@@ -219,13 +220,11 @@ public class Camera2Fragment extends Fragment {
                         Double lenthRec = Math.sqrt(x * x + y * y) - lenth;
                         Double viewLenth = Math.sqrt(v.getWidth() * v.getWidth() + v.getHeight()
                                 * v.getHeight());
-                        int width = maxZoomrect.right - maxZoomrect.left;
-                        int height = maxZoomrect.bottom - maxZoomrect.top;
                         zoom = ((lenthRec / viewLenth) * maxRealRadio) + lastzoom;
-                        picRect.top = (int) (maxZoomrect.top / (lastzoom - zoom));
-                        picRect.left = (int) (maxZoomrect.left / (lastzoom - zoom));
-                        picRect.right = (int) (maxZoomrect.right / (lastzoom - zoom));
-                        picRect.bottom = (int) (maxZoomrect.bottom / (lastzoom - zoom));
+                        picRect.top = (int) (maxZoomrect.top / (zoom));
+                        picRect.left = (int) (maxZoomrect.left / (zoom));
+                        picRect.right = (int) (maxZoomrect.right / (zoom));
+                        picRect.bottom = (int) (maxZoomrect.bottom / (zoom));
                         Message.obtain(mUIHandler, MOVE_FOCK).sendToTarget();
                     }
                     break;
