@@ -30,6 +30,7 @@ import android.os.Message;
 import android.support.annotation.Nullable;
 import android.util.FloatMath;
 import android.util.Log;
+import android.util.Range;
 import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -82,6 +83,7 @@ public class Camera2Fragment extends Fragment {
 
         }
     };
+    private Surface surface;
     //打开相机时候的监听器，通过他可以得到相机实例，这个实例可以创建请求建造者
     private CameraDevice.StateCallback cameraOpenCallBack = new CameraDevice.StateCallback() {
         @Override
@@ -91,7 +93,7 @@ public class Camera2Fragment extends Fragment {
                 mPreViewBuidler = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 SurfaceTexture texture = mTextureView.getSurfaceTexture();
                 texture.setDefaultBufferSize(mPreViewSize.getWidth(), mPreViewSize.getHeight());
-                Surface surface = new Surface(texture);
+                 surface = new Surface(texture);
                 mPreViewBuidler.addTarget(surface);
                 cameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface
                         ()), mSessionStateCallBack, mHandler);
@@ -151,6 +153,8 @@ public class Camera2Fragment extends Fragment {
                         ImageFormat.JPEG, 5);
                 mImageReader.setOnImageAvailableListener(onImageAvaiableListener, mHandler);
                 manager.openCamera(cameraid, cameraOpenCallBack, mHandler);
+                //设置点击拍照的监听
+                mButton.setOnTouchListener(onTouchListener);
             } catch (CameraAccessException e) {
                 e.printStackTrace();
             }
@@ -171,6 +175,69 @@ public class Camera2Fragment extends Fragment {
 
         }
     };
+
+    private View.OnTouchListener onTouchListener = new View.OnTouchListener() {
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    try {
+                        mCameraSession.setRepeatingRequest(initDngBuilder().build(), null, mHandler);
+                    } catch (CameraAccessException e) {
+                        Toast.makeText(getActivity(), "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                    try {
+                        updateCameraPreviewSession();
+                    } catch (CameraAccessException e) {
+                        Toast.makeText(getActivity(), "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+            }
+            return true;
+        }
+    };
+
+    private void updateCameraPreviewSession() throws CameraAccessException {
+        mPreViewBuidler.set(CaptureRequest.CONTROL_AF_TRIGGER,CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+        mPreViewBuidler.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+        mCameraSession.setRepeatingRequest(mPreViewBuidler.build(),null,mHandler);
+    }
+
+    /**
+     * 设置连拍的参数
+     *
+     * @return
+     */
+    private CaptureRequest.Builder initDngBuilder() {
+        CaptureRequest.Builder captureBuilder = null;
+        try {
+            captureBuilder = mCameraSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+            captureBuilder.addTarget(mImageReader.getSurface());
+            captureBuilder.addTarget(surface);
+            // Required for RAW capture
+            captureBuilder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
+            captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            captureBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, (long) ((214735991 - 13231) / 2));
+            captureBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, 0);
+            captureBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, (10000 - 100) / 2);//设置 ISO，感光度
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, 90);
+            //设置每秒30帧
+            CameraManager cameraManager = (CameraManager) getActivity().getSystemService(Context.CAMERA_SERVICE);
+            String cameraid = CameraCharacteristics.LENS_FACING_FRONT + "";
+            CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraid);
+            Range<Integer> fps[] = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+            captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fps[fps.length - 1]);
+        } catch (CameraAccessException e) {
+            Toast.makeText(getActivity(), "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
+        } catch (NullPointerException e) {
+            Toast.makeText(getActivity(), "打开相机失败", Toast.LENGTH_SHORT).show();
+        }
+        return captureBuilder;
+    }
     private View.OnClickListener picOnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
@@ -271,8 +338,6 @@ public class Camera2Fragment extends Fragment {
         ringtone.setAudioAttributes(attr.build());
         //初始化相机布局
         mTextureView.setSurfaceTextureListener(mSurfacetextlistener);
-        //设置点击拍照的监听
-        mButton.setOnClickListener(picOnClickListener);
         mTextureView.setOnTouchListener(textTureOntuchListener);
         return v;
     }

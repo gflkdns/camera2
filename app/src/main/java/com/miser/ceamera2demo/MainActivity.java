@@ -27,6 +27,8 @@ import android.util.Log;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.TextureView;
+import android.view.Window;
+import android.view.WindowManager;
 
 public class MainActivity extends Activity {
 
@@ -36,6 +38,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        //去除title
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        //去掉Activity上面的状态栏
+        getWindow().setFlags(WindowManager.LayoutParams. FLAG_FULLSCREEN ,
+                WindowManager.LayoutParams. FLAG_FULLSCREEN);
+
         setContentView(R.layout.activity_main);
     }
 
