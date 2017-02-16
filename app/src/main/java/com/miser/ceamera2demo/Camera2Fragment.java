@@ -93,7 +93,7 @@ public class Camera2Fragment extends Fragment {
                 mPreViewBuidler = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 SurfaceTexture texture = mTextureView.getSurfaceTexture();
                 texture.setDefaultBufferSize(mPreViewSize.getWidth(), mPreViewSize.getHeight());
-                 surface = new Surface(texture);
+                surface = new Surface(texture);
                 mPreViewBuidler.addTarget(surface);
                 cameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface
                         ()), mSessionStateCallBack, mHandler);
@@ -200,9 +200,9 @@ public class Camera2Fragment extends Fragment {
     };
 
     private void updateCameraPreviewSession() throws CameraAccessException {
-        mPreViewBuidler.set(CaptureRequest.CONTROL_AF_TRIGGER,CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
-        mPreViewBuidler.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-        mCameraSession.setRepeatingRequest(mPreViewBuidler.build(),null,mHandler);
+        mPreViewBuidler.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+        mPreViewBuidler.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+        mCameraSession.setRepeatingRequest(mPreViewBuidler.build(), null, mHandler);
     }
 
     /**
@@ -238,6 +238,7 @@ public class Camera2Fragment extends Fragment {
         }
         return captureBuilder;
     }
+
     private View.OnClickListener picOnClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
@@ -245,13 +246,13 @@ public class Camera2Fragment extends Fragment {
                 shootSound();
                 Log.d(TAG, "正在拍照");
                 CaptureRequest.Builder builder = mCameraSession.getDevice().createCaptureRequest
-                        (CameraDevice.TEMPLATE_PREVIEW);
+                        (CameraDevice.TEMPLATE_STILL_CAPTURE);
                 builder.addTarget(mImageReader.getSurface());
                 builder.set(CaptureRequest.SCALER_CROP_REGION, picRect);
                 builder.set(CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_AUTO);
-                builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
-                        CameraMetadata.CONTROL_AF_TRIGGER_START);
+                        CaptureRequest.CONTROL_AF_MODE_EDOF);
+//                builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+//                        CameraMetadata.CONTROL_AF_TRIGGER_START);
                 builder.set(CaptureRequest.JPEG_ORIENTATION, 90);
                 mCameraSession.capture(builder.build(), null, mHandler);
             } catch (CameraAccessException e) {
