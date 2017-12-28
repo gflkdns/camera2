@@ -47,13 +47,24 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 public class Camera2Fragment extends Fragment {
     private static final String TAG = "Camera2Fragment";
     private static final int SETIMAGE = 1;
     private static final int MOVE_FOCK = 2;
+    /**
+     * Max preview width that is guaranteed by Camera2 API
+     */
+    private static final int MAX_PREVIEW_WIDTH = 1920;
+
+    /**
+     * Max preview height that is guaranteed by Camera2 API
+     */
+    private static final int MAX_PREVIEW_HEIGHT = 1080;
 
     TextureView mTextureView;
     ImageView mThumbnail;
@@ -122,6 +133,7 @@ public class Camera2Fragment extends Fragment {
     private Size mPreViewSize;
     private Rect maxZoomrect;
     private int maxRealRadio;
+    private Integer mSensorOrientation;
     //预览图显示控件的监听器，可以监听这个surface的状态
     private TextureView.SurfaceTextureListener mSurfacetextlistener = new TextureView
             .SurfaceTextureListener() {
@@ -149,6 +161,7 @@ public class Camera2Fragment extends Fragment {
                 Size largest = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)
                 ), new CompareSizeByArea());
                 mPreViewSize = map.getOutputSizes(SurfaceTexture.class)[0];
+                choosePreSize(i, i1, map, largest);
                 mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
                         ImageFormat.JPEG, 5);
                 mImageReader.setOnImageAvailableListener(onImageAvaiableListener, mHandler);
@@ -158,6 +171,53 @@ public class Camera2Fragment extends Fragment {
             } catch (CameraAccessException e) {
                 e.printStackTrace();
             }
+        }
+
+        private void choosePreSize(int i, int i1, StreamConfigurationMap map, Size largest) {
+            int displayRotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+            //noinspection ConstantConditions
+            mSensorOrientation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            boolean swappedDimensions = false;
+            switch (displayRotation) {
+                case Surface.ROTATION_0:
+                case Surface.ROTATION_180:
+                    if (mSensorOrientation == 90 || mSensorOrientation == 270) {
+                        swappedDimensions = true;
+                    }
+                    break;
+                case Surface.ROTATION_90:
+                case Surface.ROTATION_270:
+                    if (mSensorOrientation == 0 || mSensorOrientation == 180) {
+                        swappedDimensions = true;
+                    }
+                    break;
+                default:
+                    Log.e(TAG, "Display rotation is invalid: " + displayRotation);
+            }
+            android.graphics.Point displaySize = new android.graphics.Point();
+            getActivity().getWindowManager().getDefaultDisplay().getSize(displaySize);
+            int rotatedPreviewWidth = i;
+            int rotatedPreviewHeight = i1;
+            int maxPreviewWidth = displaySize.x;
+            int maxPreviewHeight = displaySize.y;
+
+            if (swappedDimensions) {
+                rotatedPreviewWidth = i1;
+                rotatedPreviewHeight = i;
+                maxPreviewWidth = displaySize.y;
+                maxPreviewHeight = displaySize.x;
+            }
+
+            if (maxPreviewWidth > MAX_PREVIEW_WIDTH) {
+                maxPreviewWidth = MAX_PREVIEW_WIDTH;
+            }
+
+            if (maxPreviewHeight > MAX_PREVIEW_HEIGHT) {
+                maxPreviewHeight = MAX_PREVIEW_HEIGHT;
+            }
+            mPreViewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
+                    rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
+                    maxPreviewHeight, largest);
         }
 
         @Override
@@ -173,6 +233,39 @@ public class Camera2Fragment extends Fragment {
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
 
+        }
+
+        private Size chooseOptimalSize(Size[] choices, int textureViewWidth,
+                                       int textureViewHeight, int maxWidth, int maxHeight, Size aspectRatio) {
+
+            // Collect the supported resolutions that are at least as big as the preview Surface
+            List<Size> bigEnough = new ArrayList<>();
+            // Collect the supported resolutions that are smaller than the preview Surface
+            List<Size> notBigEnough = new ArrayList<>();
+            int w = aspectRatio.getWidth();
+            int h = aspectRatio.getHeight();
+            for (Size option : choices) {
+                if (option.getWidth() <= maxWidth && option.getHeight() <= maxHeight &&
+                        option.getHeight() == option.getWidth() * 3 / 4) {
+                    if (option.getWidth() >= textureViewWidth &&
+                            option.getHeight() >= textureViewHeight) {
+                        bigEnough.add(option);
+                    } else {
+                        notBigEnough.add(option);
+                    }
+                }
+            }
+
+            // Pick the smallest of those big enough. If there is no one big enough, pick the
+            // largest of those not big enough.
+            if (bigEnough.size() > 0) {
+                return Collections.min(bigEnough, new CompareSizeByArea());
+            } else if (notBigEnough.size() > 0) {
+                return Collections.max(notBigEnough, new CompareSizeByArea());
+            } else {
+                Log.e(TAG, "Couldn't find any suitable preview size");
+                return choices[0];
+            }
         }
     };
 
